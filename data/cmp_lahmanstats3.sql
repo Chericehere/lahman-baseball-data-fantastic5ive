@@ -110,7 +110,7 @@ CAST((sb + cs) as numeric) as attempts
 	FROM batting
 	WHERE yearid = 2016
 
---Solving question, calculating the highest success rate
+--Solving question, calculating the highest success rate - no joins/no actual names
 Select player, stolen, caught, attempts, ROUND((stolen/attempts),2) as success_rate
 FROM
 	(SELECT yearid as year, playerid as player, sb as stolen, cs as caught, 
@@ -120,10 +120,52 @@ FROM
 WHERE attempts >= 20
 ORDER BY success_rate DESC
 
---Num 8 Setting up subqueries - probably unnecessary but that's ok
-SELECT team, park, CAST(games as numeric), CAST(attendance as numeric)
-FROM homegames
-WHERE year = 2016 AND games >1
+--testing out joins for No6 -> to include names
+SELECT 	b.yearid as year, b.sb as stolen, b.cs as caught, 
+	  	CAST((b.sb + b.cs) as numeric) as attempts,
+		CONCAT(p.namefirst, ' ', p.namelast) as player
+	FROM batting as b
+LEFT JOIN people as p
+	USING (playerid)
+--INCLUDING JOINS/ACTUAL Names of players ->this is the final answer
+Select full_name, stolen, caught, attempts, ROUND((stolen/attempts),2) as success_rate
+FROM
+	(SELECT 	b.yearid as year, b.sb as stolen, b.cs as caught, 
+	  	CAST((b.sb + b.cs) as numeric) as attempts,
+		CONCAT(p.namefirst, ' ', p.namelast) as full_name
+	FROM batting as b
+LEFT JOIN people as p
+	USING (playerid)) as sub
+WHERE attempts >= 20 AND year = 2016
+ORDER BY success_rate DESC
+LIMIT 1
+
+--Num 8 Finding names of parks and teams
+Select DISTINCT sub.games as games, sub.attendance as attendance, sub.park_name as park, t.name as team
+FROM 
+(SELECT h.team as teamid, CAST(h.games as numeric), CAST(h.attendance as numeric), 
+		p.park_name 
+	FROM homegames as h
+LEFT JOIN parks as p
+USING (park)	
+WHERE year = 2016 AND games >1) as sub
+LEFT JOIN teams as t
+USING (teamid)
+
+--trying to find top 5 with names included
+SELECT team, park, games, attendance, ROUND((attendance/games),2) as avg_attendance
+FROM
+	(Select DISTINCT sub.games as games, sub.attendance as attendance, sub.park_name as park, t.name as team
+FROM 
+(SELECT h.team as teamid, CAST(h.games as numeric), CAST(h.attendance as numeric), 
+		p.park_name 
+	FROM homegames as h
+LEFT JOIN parks as p
+USING (park)	
+WHERE year = 2016 AND games >1) as sub
+LEFT JOIN teams as t
+USING (teamid)) as sub
+ORDER BY avg_attendance DESC
 
 --finding answer top 5
 SELECT team, park, games, attendance, ROUND((attendance/games),2) as avg_attendance
@@ -142,3 +184,7 @@ FROM
 	WHERE year = 2016 AND games >1) as sub
 ORDER BY avg_attendance
 LIMIT 5
+
+select *
+from teams
+WHERE yearid = 2016
