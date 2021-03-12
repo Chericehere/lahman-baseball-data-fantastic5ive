@@ -121,26 +121,79 @@ As you do this analysis, keep in mind that salaries across the whole league tend
 SELECT teamid, yearid, SUM(w) AS wins_year
 FROM teams
 WHERE yearid >= 2000
-GROUP BY ROLLUP(teamid, yearid)
+GROUP BY teamid, yearid
 ORDER BY teamid, yearid;
 
 --This gives me the yearly salary starting in the year 2000
 SELECT teamid, yearid, SUM(salary) AS yearly_salary
 FROM salaries
 WHERE yearid >= 2000
-GROUP BY ROLLUP(teamid, yearid)
+GROUP BY teamid, yearid
 ORDER BY teamid, yearid;
 
---Let's join them
-SELECT t.teamid, t.yearid, SUM(t.w) AS wins_year, s.yearly_salary
+--Let's join them. Added a column for salary per win to help analyze the data. 
+SELECT t.teamid, t.yearid, SUM(t.w) AS wins_year, CONCAT(ROUND(CAST(s.yearly_salary/1000000.00 AS numeric),2), 'M') AS salary_mil, ROUND(CAST(s.yearly_salary/1000000 AS numeric)/SUM(t.w),2) AS salary_mil_per_win
 FROM teams AS t
 LEFT JOIN (
 	SELECT teamid, yearid, SUM(salary) AS yearly_salary
 	FROM salaries
 	WHERE yearid >= 2000
-	GROUP BY ROLLUP(teamid, yearid)
+	GROUP BY teamid, yearid
 	ORDER BY teamid, yearid) AS s
+ON t.teamid = s.teamid AND t.yearid = s.yearid
 WHERE t.yearid >= 2000
-GROUP BY ROLLUP(t.teamid, t.yearid)
+GROUP BY t.teamid, t.yearid, s.yearly_salary
 ORDER BY t.teamid, t.yearid;
+--I can also order by wins or the salary per win column to help conceptulize it.
 
+/*
+Q3. Find all players in the database who played at Vanderbilt University. 
+Create a list showing each player’s first and last names as well as the total salary they earned in the major leagues. 
+Sort this list in descending order by the total salary earned. Which Vanderbilt player earned the most money in the majors?
+*/
+
+SELECT CONCAT(p.namefirst, ' ',p.namelast) AS full_name, SUM(s.salary) AS total_salary
+FROM collegeplaying AS c
+INNER JOIN people AS p
+USING (playerid)
+INNER JOIN salaries AS s
+USING (playerid)
+WHERE c.schoolid = 'vandy'
+GROUP BY full_name
+ORDER BY total_salary DESC;
+
+/*
+Q4. Using the fielding table, group players into three groups based on their position: 
+label players with position OF as "Outfield", 
+those with position "SS", "1B", "2B", and "3B" as "Infield", 
+and those with position "P" or "C" as "Battery". 
+Determine the number of putouts made by each of these three groups in 2016.
+*/
+
+
+SELECT COUNT(pos),
+	CASE 
+		WHEN pos = 'OF' THEN 'Outfield'
+		WHEN pos IN ('SS', '1B', '2B', '3B') THEN 'Infield'
+		WHEN pos IN ('P', 'C') THEN 'Battery'
+		END AS pos_groups,
+	SUM(po) AS num_putouts
+FROM fielding
+WHERE yearid = 2016
+GROUP BY pos_groups;
+
+/*
+Q5. Find the average number of strikeouts per game by decade since 1920. 
+Round the numbers you report to 2 decimal places. 
+Do the same for home runs per game. Do you see any trends?
+*/
+
+SELECT *
+FROM pitching;
+
+--Use 'FLOOR(yearid/10)*10 AS decade' to split into decades
+SELECT FLOOR(yearid/10)*10 AS decade, ROUND(SUM(CAST(so AS numeric(100,2)))/SUM(CAST(g AS numeric(100,2))),2) AS avg_strikeout, ROUND(SUM(CAST(hr AS numeric(100,2)))/SUM(CAST(g AS numeric(100,2))),2) AS avg_homerun
+FROM pitching
+WHERE yearid >= 1920
+GROUP BY decade
+ORDER by decade;
